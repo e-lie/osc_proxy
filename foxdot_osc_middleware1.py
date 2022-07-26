@@ -11,29 +11,46 @@ from pythonosc import udp_client
 # Client will send OSC messages to VCV Rack
 client = None
 
+prefixes = { "play1": "drum", "bass": "bass", "bbass": "bass", "tb303": "bass", "blip": "mallet"}
+selected_params = ["freq", "sample", "amp", "amplify", "dur", "sus", "pan", "rate", "oct"]
+
+accumulations = { synth: { param: 0 for param in selected_params } for synth in prefixes.values()}
+
 def foxdot_handler(addr, *args):
     global client
 
     # 'play1' is the name of FoxDot's sample player, but you can use any synth name here, like "pluck"
-    if args[0] != 'play1':
-        return
+    # if args[0] != 'play1':
+    #     return
+
+   
 
     # OSC bundle looks like this: ["/s_new", "play1", 1001, 1, 0, "freq", 440, "amp", 1, "pan", -1, "sus", 1] 
-    args = args[6:] # strip first six elements, we won't need them
+    # args = args[6:] # strip first six elements, we won't need them
 
     # Parse attributes from the OSC bundle into a dictionary for easier use
     args_dict = {}
     for i in range(0, len(args), 2):
         args_dict[args[i]] = args[i + 1]
-        print(args[i])
-
+    
     # We will send to two separate VCV Rack OSC addresses,
     # so we need a way to tell which player goes to which address.
     # In this case, sample number decides which address to use.
-    if args_dict['sample'] == 0:
-        client.send_message("/kick", args_dict['rate'])
-    elif args_dict['sample'] == 1:
-        client.send_message("/hihat", args_dict['rate'])
+    # if args_dict['sample'] == 0:
+    #     client.send_message("/kick", args_dict['rate'])
+    # elif args_dict['sample'] == 1:
+        # client.send_message("/hihat", args_dict['rate'])
+    try:
+        for param in selected_params:
+            client.send_message(f"/{prefixes[args[0]]}/{param}", args_dict[param])
+            try:
+                accumulations[prefixes[args[0]]][param] +=  args_dict[param]
+            except:
+                accumulations[prefixes[args[0]]][param] += 0
+            client.send_message(f"/{prefixes[args[0]]}/{param}/accu", accumulations[prefixes[args[0]]][param])
+
+    except:
+        pass
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
